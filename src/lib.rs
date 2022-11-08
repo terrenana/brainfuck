@@ -1,6 +1,10 @@
-pub mod brainfuck {
-
 use std::io::Read;
+
+pub enum BrainfuckError {
+    LexError(String),
+    ParseError(String),
+    ExecuteError(String)
+}
 
 #[derive(Clone)]
 enum OpCode {
@@ -24,7 +28,7 @@ enum Instruction {
     Loop(Vec<Instruction>),
 }
 
-fn lex<E>(stream: String) -> Result<Vec<OpCode>, E> {
+fn lex(stream: String) -> Result<Vec<OpCode>, BrainfuckError> {
     let mut opcodes: Vec<OpCode> = Vec::new();
 
     for char in stream.chars() {
@@ -48,7 +52,7 @@ fn lex<E>(stream: String) -> Result<Vec<OpCode>, E> {
     Ok(opcodes)
 }
 
-fn parse<E>(opcodes: Vec<OpCode>) -> Result<Vec<Instruction>, E> {
+fn parse(opcodes: Vec<OpCode>) -> Result<Vec<Instruction>, BrainfuckError> {
     let mut instructions: Vec<Instruction> = Vec::new();
     let mut loop_stack = 0;
     let mut loop_start = 0;
@@ -69,7 +73,9 @@ fn parse<E>(opcodes: Vec<OpCode>) -> Result<Vec<Instruction>, E> {
                     None
                 }
 
-                OpCode::LoopEnd => panic!("Loop ending at #{} has no beginning!", ix),
+                OpCode::LoopEnd => {
+                    return Err(BrainfuckError::ParseError(format!("Loop ending at #{} has no beginning!", ix)));
+                }
             };
             match instruction {
                 Some(instruction) => instructions.push(instruction),
@@ -92,13 +98,13 @@ fn parse<E>(opcodes: Vec<OpCode>) -> Result<Vec<Instruction>, E> {
         }
     }
     if loop_stack != 0 {
-        panic!("Loop starting at #{} has no matching ending!", loop_start);
+        return Err(BrainfuckError::ParseError(format!("Loop starting at #{} has no matching ending!", loop_start)));
     }
 
     Ok(instructions)
 }
 
-fn execute<E>(instructions: &Vec<Instruction>, tape: &mut Vec<u8>, pointer: &mut usize) -> Result<(), E> {
+fn execute(instructions: &Vec<Instruction>, tape: &mut Vec<u8>, pointer: &mut usize)-> Result<(), BrainfuckError> {
     for instruction in instructions {
         match instruction {
             Instruction::IncrementPointer => *pointer += 1,
@@ -108,7 +114,12 @@ fn execute<E>(instructions: &Vec<Instruction>, tape: &mut Vec<u8>, pointer: &mut
             Instruction::Write => print!("{}", tape[*pointer] as char),
             Instruction::Read => {
                 let mut input: [u8; 1] = [0; 1];
-                std::io::stdin().read_exact(&mut input).expect("Failed to read from stdin!");
+                match std::io::stdin().read_exact(&mut input) {
+                    Ok(_) => (),
+                    Err(a) => {
+                        return Err(BrainfuckError::ExecuteError(a.to_string()))
+                    }
+                };
                 tape[*pointer] = input[0];
             },
             Instruction::Loop(loop_instructions) => {
@@ -120,10 +131,7 @@ fn execute<E>(instructions: &Vec<Instruction>, tape: &mut Vec<u8>, pointer: &mut
     }
     Ok(())
 }
-pub fn run<E>(input: String) -> Result<(), E>{
-    let mut tape = vec![0; 1024];
-    let mut pointer: usize = 512; 
-    execute(&parse(lex(input)?)?, &mut tape, &mut pointer)?;
-    Ok(())
-}
+
+pub fn run(stream: String, tape: &mut Vec<u8>, pointer: &mut usize) -> Result<(), BrainfuckError> {
+    Ok(execute(&parse(lex(stream)?)?, tape, pointer)?)
 }
