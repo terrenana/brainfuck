@@ -1,12 +1,16 @@
 use std::io::Read;
 
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub enum BrainfuckError {
     LexError(String),
     ParseError(String),
     ExecuteError(String)
 }
 
+#[derive(Debug)]
 #[derive(Clone)]
+#[derive(PartialEq)]
 enum OpCode {
     IncrementPointer,
     DecrementPointer,
@@ -17,7 +21,8 @@ enum OpCode {
     LoopBegin,
     LoopEnd,
 }
-
+#[derive(Debug)]
+#[derive(PartialEq)]
 enum Instruction {
     IncrementPointer,
     DecrementPointer,
@@ -50,6 +55,11 @@ fn lex(stream: String) -> Result<Vec<OpCode>, BrainfuckError> {
         }
     }
     Ok(opcodes)
+}
+
+#[test]
+fn test_lex() {
+    assert_eq!(lex("><+-.,[]".to_string()), Ok(vec![OpCode::IncrementPointer, OpCode::DecrementPointer, OpCode::Increment, OpCode::Decrement, OpCode::Write, OpCode::Read, OpCode::LoopBegin, OpCode::LoopEnd]));
 }
 
 fn parse(opcodes: Vec<OpCode>) -> Result<Vec<Instruction>, BrainfuckError> {
@@ -102,6 +112,11 @@ fn parse(opcodes: Vec<OpCode>) -> Result<Vec<Instruction>, BrainfuckError> {
     }
 
     Ok(instructions)
+}
+
+#[test]
+fn test_parse() {
+    assert_eq!(parse(vec![OpCode::IncrementPointer, OpCode::DecrementPointer, OpCode::Increment, OpCode::Decrement, OpCode::Write, OpCode::Read, OpCode::LoopBegin, OpCode::Increment, OpCode::Decrement, OpCode::Write, OpCode::LoopEnd]), Ok(vec![Instruction::IncrementPointer, Instruction::DecrementPointer, Instruction::Increment, Instruction::Decrement, Instruction::Write, Instruction::Read, Instruction::Loop(vec![Instruction::Increment, Instruction::Decrement, Instruction::Write])]));
 }
 
 fn execute(instructions: &Vec<Instruction>, tape: &mut Vec<u8>, pointer: &mut usize)-> Result<(), BrainfuckError> {
